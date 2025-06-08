@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Landing Page Produk</title>
+  <style>
+    body { font-family: Arial, sans-serif; background: #f9f9f9; margin: 0; padding: 0; }
+    .page { display: none; padding: 20px; }
+    .page.active { display: block; }
+    h1, h2, h3 { text-align: center; color: #333; }
+    .product-grid {
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 20px; max-width: 1000px; margin: auto;
+    }
+    .product-card {
+      background: white; border-radius: 10px; overflow: hidden;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.1); cursor: pointer; transition: transform 0.2s;
+    }
+    .product-card:hover { transform: scale(1.02); }
+    .product-card img { width: 100%; height: 150px; object-fit: cover; }
+    .product-info { padding: 15px; }
+    .product-name { font-size: 18px; font-weight: bold; margin-bottom: 5px; }
+    .product-price { color: #4CAF50; font-size: 16px; }
+    .form-container, .confirmation-container {
+      max-width: 500px; margin: auto; background: white;
+      padding: 30px; border-radius: 10px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.1);
+    }
+    label { display: block; margin-top: 15px; font-weight: bold; }
+    input[type="text"], input[type="tel"] {
+      width: 100%; padding: 10px; margin-top: 5px;
+      border-radius: 5px; border: 1px solid #ccc;
+    }
+    button {
+      margin-top: 20px; width: 100%; padding: 12px;
+      background-color: #4CAF50; color: white;
+      border: none; border-radius: 5px; font-size: 16px;
+      cursor: pointer;
+    }
+    .btn-back { margin-top: 10px; background-color: #666; color: white; }
+    .total-harga { margin-top: 20px; font-size: 18px; font-weight: bold; text-align: right; }
+  </style>
+</head>
+<body>
+  <div id="products-page" class="page active">
+    <h1>Pilih Produk Anda</h1>
+    <div class="product-grid">
+      <div class="product-card" onclick="goToDescription('produk1', 'Produk A', 100000, 'https://placehold.co/300x200?text=Produk+A', 'Produk A adalah produk berkualitas tinggi.', 'https://www.youtube.com/embed/h53bszQi9cE')">
+        <img src="https://placehold.co/300x200?text=Produk+A" alt="Produk A">
+        <div class="product-info">
+          <div class="product-name">Produk A</div>
+          <div class="product-price">Rp100.000</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="description-page" class="page">
+    <h2>Deskripsi Produk</h2>
+    <div class="form-container">
+      <img id="desc-image" src="" alt="Gambar Produk" style="width: 100%; height: auto; border-radius: 10px;">
+      <h3 id="desc-name"></h3>
+      <p id="desc-price" style="color: #4CAF50; font-weight: bold;"></p>
+      <p id="desc-text"></p>
+      <div id="desc-video-container" style="margin-top: 20px; display: none;">
+        <iframe id="desc-video" width="100%" height="315" frameborder="0" allowfullscreen style="border-radius: 10px;"></iframe>
+      </div>
+      <button onclick="goToForm()">Pesan Produk Ini</button>
+      <button class="btn-back" onclick="kembaliKeEtalase()">Kembali</button>
+    </div>
+  </div>
+
+  <div id="form-page" class="page">
+    <h2>Form Pemesanan</h2>
+    <div class="form-container">
+      <input type="hidden" id="selected-product-id" name="selected-product-id">
+      <label for="nama">Nama Lengkap:</label>
+      <input type="text" id="nama" name="nama" placeholder="Masukkan nama Anda">
+      <label for="wa">Nomor WhatsApp:</label>
+      <input type="tel" id="wa" name="wa" placeholder="Masukkan nomor WA Anda">
+      <label for="produk">Produk Terpilih:</label>
+      <input type="text" id="produk" name="produk" readonly>
+      <label for="diskon">Kode Diskon (opsional):</label>
+      <input type="text" id="diskon" name="diskon" oninput="hitungHarga()">
+      <div class="total-harga" id="totalHarga">Total Harga: Rp0</div>
+      <button onclick="submitForm()">Pesan Sekarang</button>
+      <button class="btn-back" onclick="kembaliKeEtalase()">Kembali</button>
+    </div>
+  </div>
+
+  <div id="confirmation-page" class="page">
+    <h2>Konfirmasi Pembayaran</h2>
+    <div class="confirmation-container">
+      <p id="confirmation-message"></p>
+      <p><strong>Silakan transfer ke rekening berikut:</strong></p>
+      <p>BCA - 1234567890 a.n. Nama Toko</p>
+      <button class="btn-back" onclick="kembaliKeEtalase()">Kembali ke Etalase</button>
+    </div>
+  </div>
+
+  <script>
+    let selectedProductId = '', selectedProductName = '', selectedProductPrice = 0, hargaAsli = 0;
+
+    function goToDescription(id, name, price, image, description, videoEmbedLink = '') {
+      document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+      document.getElementById('description-page').classList.add('active');
+      selectedProductId = id;
+      selectedProductName = name;
+      selectedProductPrice = price;
+      hargaAsli = price;
+      document.getElementById('desc-image').src = image;
+      document.getElementById('desc-name').textContent = name;
+      document.getElementById('desc-price').textContent = "Rp" + price.toLocaleString('id-ID');
+      document.getElementById('desc-text').textContent = description;
+      const videoFrame = document.getElementById('desc-video');
+      const videoContainer = document.getElementById('desc-video-container');
+      if (videoEmbedLink) {
+        videoFrame.src = videoEmbedLink;
+        videoContainer.style.display = 'block';
+      } else {
+        videoFrame.src = '';
+        videoContainer.style.display = 'none';
+      }
+    }
+
+    function goToForm() {
+      document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+      document.getElementById('form-page').classList.add('active');
+      document.getElementById('selected-product-id').value = selectedProductId;
+      document.getElementById('produk').value = selectedProductName + " - Rp" + selectedProductPrice.toLocaleString('id-ID');
+      hitungHarga();
+    }
+
+    function hitungHarga() {
+      let harga = hargaAsli;
+      const kodeDiskon = document.getElementById('diskon').value.trim();
+      if (kodeDiskon === "DISKON10") harga -= 10000;
+      else if (kodeDiskon === "DISKON20") harga -= 20000;
+      document.getElementById('totalHarga').textContent = "Total Harga: Rp" + harga.toLocaleString('id-ID');
+    }
+
+    function submitForm() {
+  const nama = document.getElementById('nama').value.trim();
+  const wa = document.getElementById('wa').value.trim();
+  const produk = document.getElementById('produk').value.trim();
+  const diskon = document.getElementById('diskon').value.trim();
+  const totalHarga = document.getElementById('totalHarga').textContent;
+
+  if (!nama || !wa) {
+    alert("Harap lengkapi semua data!");
+    return;
+  }
+
+  const formData = new FormData();
+  formData.append("nama", nama);
+  formData.append("wa", wa);
+  formData.append("produk", produk);
+  formData.append("diskon", diskon);
+  formData.append("totalHarga", totalHarga);
+
+  fetch("https://script.google.com/macros/s/AKfycbzN5DsF9tOw-QfhB6ui9ifK1acKRMqFsEzE9mTX57ywDUPJkcKtd2fMfhMXnBMbixSWvg/exec?sheet=Sheet1", {
+    method: "POST",
+    body: formData
+  })
+  .then(res => res.json())
+  .then(res => {
+    if (res.result === 'success') {
+      const msg = `
+        Terima kasih, <strong>${nama}</strong>.<br>
+        Total harga pesanan Anda adalah <strong>${totalHarga}</strong>.<br>
+        Silakan transfer ke rekening berikut:`;
+      document.getElementById('confirmation-message').innerHTML = msg;
+      document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+      document.getElementById('confirmation-page').classList.add('active');
+    } else {
+      alert("Gagal menyimpan data: " + res.error);
+    }
+  })
+  .catch(err => alert("Gagal mengirim data. Coba lagi nanti."));
+}
+
+    function kembaliKeEtalase() {
+      document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+      document.getElementById('products-page').classList.add('active');
+      document.getElementById('nama').value = '';
+      document.getElementById('wa').value = '';
+      document.getElementById('diskon').value = '';
+      document.getElementById('produk').value = '';
+      document.getElementById('totalHarga').textContent = 'Total Harga: Rp0';
+    }
+  </script>
+</body>
+</html>
