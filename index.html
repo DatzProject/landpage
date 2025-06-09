@@ -146,35 +146,35 @@
       const produk = document.getElementById('produk').value.trim();
       const diskon = document.getElementById('diskon').value.trim();
       const totalHarga = document.getElementById('totalHarga').textContent;
+
       if (!nama || !wa) {
         alert("Harap lengkapi semua data!");
         return;
       }
+
       const formData = new FormData();
       formData.append("nama", nama);
       formData.append("wa", wa);
       formData.append("produk", produk);
       formData.append("diskon", diskon);
       formData.append("totalHarga", totalHarga);
+
+      // Kirim data tanpa menunggu
       fetch("https://script.google.com/macros/s/AKfycbzN5DsF9tOw-QfhB6ui9ifK1acKRMqFsEzE9mTX57ywDUPJkcKtd2fMfhMXnBMbixSWvg/exec?sheet=Sheet1", {
         method: "POST",
         body: formData
-      })
-      .then(res => res.json())
-      .then(res => {
-        if (res.result === 'success') {
-          const msg = `
-            Terima kasih, <strong>${nama}</strong>.<br>
-            Total harga pesanan Anda adalah <strong>${totalHarga}</strong>.<br>
-            Silakan transfer ke rekening berikut:`;
-          document.getElementById('confirmation-message').innerHTML = msg;
-          document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-          document.getElementById('confirmation-page').classList.add('active');
-        } else {
-          alert("Gagal menyimpan data: " + res.error);
-        }
-      })
-      .catch(err => alert("Data anda sudah terkirim."));
+      }).catch(err => {
+        console.warn("Gagal kirim data:", err);
+      });
+
+      // Langsung tampilkan halaman konfirmasi
+      const msg = `
+        Terima kasih, <strong>${nama}</strong>.<br>
+        Total harga pesanan Anda adalah <strong>${totalHarga}</strong>.<br>
+        Silakan transfer ke rekening berikut:`;
+      document.getElementById('confirmation-message').innerHTML = msg;
+      document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+      document.getElementById('confirmation-page').classList.add('active');
     }
 
     function kembaliKeEtalase() {
