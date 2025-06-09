@@ -43,17 +43,18 @@
   </style>
 </head>
 <body>
+  <!-- Halaman Etalase -->
   <div id="products-page" class="page active">
     <h1>Pilih Produk Anda</h1>
     <div class="product-grid">
-      <div class="product-card" onclick="goToDescription('produk1', 'Aplikasi Absensi Siswa', 100000, 'https://www.kantorkita.co.id/blog/wp-content/uploads/2022/08/Blue-Yellow-Utilitarian-Workplace-Health-Safety-Accident-Prevention-Health-Explainer-Social-Media-Post-1.png', 'Produk A adalah produk berkualitas tinggi.', 'https://www.youtube.com/embed/h53bszQi9cE')">
-        <img src="https://www.kantorkita.co.id/blog/wp-content/uploads/2022/08/Blue-Yellow-Utilitarian-Workplace-Health-Safety-Accident-Prevention-Health-Explainer-Social-Media-Post-1.png" alt="Produk A">
+      <div class="product-card" onclick="goToDescription('produk1', 'Aplikasi Absensi Siswa', 100000, 'https://www.kantorkita.co.id/blog/wp-content/uploads/2022/08/Blue-Yellow-Utilitarian-Workplace-Health-Safety-Accident-Prevention-Health-Explainer-Social-Media-Post-1.png',  'Produk A adalah produk berkualitas tinggi.', 'https://www.youtube.com/embed/h53bszQi9cE')"> 
+        <img src="https://www.kantorkita.co.id/blog/wp-content/uploads/2022/08/Blue-Yellow-Utilitarian-Workplace-Health-Safety-Accident-Prevention-Health-Explainer-Social-Media-Post-1.png"  alt="Produk A">
         <div class="product-info">
           <div class="product-name">Aplikasi Absensi Siswa</div>    
           <div class="product-price">Rp100.000</div>
         </div>
       </div>
-      <div class="product-card" onclick="goToDescription('produk2', 'Aplikasi Rapor', 200000, 'https://www.hadirr.com/blog/wp-content/uploads/2021/12/Aplikasi-Clockify.jpg', 'Produk B adalah produk terbaru.', 'https://www.youtube.com/embed/wbjwfqK9hYI?si=NqTjedSx1MpNLSJ4')">
+      <div class="product-card" onclick="goToDescription('produk2', 'Aplikasi Rapor', 200000, 'https://www.hadirr.com/blog/wp-content/uploads/2021/12/Aplikasi-Clockify.jpg',  'Produk B adalah produk terbaru.', 'https://www.youtube.com/embed/wbjwfqK9hYI?si=NqTjedSx1MpNLSJ4')">
         <img src="https://www.hadirr.com/blog/wp-content/uploads/2021/12/Aplikasi-Clockify.jpg" alt="Produk B">
         <div class="product-info">
           <div class="product-name">Aplikasi Rapor</div>
@@ -63,21 +64,23 @@
     </div>
   </div>
 
+  <!-- Halaman Deskripsi -->
   <div id="description-page" class="page">
     <h2>Deskripsi Produk</h2>
     <div class="form-container">
       <img id="desc-image" src="" alt="Gambar Produk" style="width: 100%; height: auto; border-radius: 10px;">
       <h3 id="desc-name"></h3>
-      <p id="desc-price" style="color: #4CAF50; font-weight: bold;"></p>
+      <p id="desc-price" style="color: #4CAF50; font-weight: bold;"></p> 
       <p id="desc-text"></p>
       <div id="desc-video-container" style="margin-top: 20px; display: none;">
         <iframe id="desc-video" width="100%" height="315" frameborder="0" allowfullscreen style="border-radius: 10px;"></iframe>
       </div>
       <button onclick="goToForm()">Pesan Produk Ini</button>
-      <button class="btn-back" onclick="kembaliKeEtalase()">Kembali</button>
+      <button class="btn-back" onclick="kembaliKeEtalase()">Kembali ke Etalase</button>
     </div>
   </div>
 
+  <!-- Halaman Form Pemesanan -->
   <div id="form-page" class="page">
     <h2>Form Pemesanan</h2>
     <div class="form-container">
@@ -92,10 +95,12 @@
       <input type="text" id="diskon" name="diskon" oninput="hitungHarga()">
       <div class="total-harga" id="totalHarga">Total Harga: Rp0</div>
       <button onclick="submitForm()">Pesan Sekarang</button>
-      <button class="btn-back" onclick="kembaliKeEtalase()">Kembali</button>
+      <button class="btn-back" onclick="kembaliKeDeskripsi()">Kembali ke Deskripsi</button>
+      <button class="btn-back" onclick="kembaliKeEtalase()">Kembali ke Etalase</button>
     </div>
   </div>
 
+  <!-- Halaman Konfirmasi -->
   <div id="confirmation-page" class="page">
     <h2>Konfirmasi Pembayaran</h2>
     <div class="confirmation-container">
@@ -106,6 +111,7 @@
     </div>
   </div>
 
+  <!-- Script JavaScript -->
   <script>
     let selectedProductId = '', selectedProductName = '', selectedProductPrice = 0, hargaAsli = 0;
 
@@ -153,19 +159,16 @@
       const produk = document.getElementById('produk').value.trim();
       const diskon = document.getElementById('diskon').value.trim();
       const totalHarga = document.getElementById('totalHarga').textContent;
-
       if (!nama || !wa) {
         alert("Harap lengkapi semua data!");
         return;
       }
-
       const formData = new FormData();
       formData.append("nama", nama);
       formData.append("wa", wa);
       formData.append("produk", produk);
       formData.append("diskon", diskon);
       formData.append("totalHarga", totalHarga);
-
       // Kirim data tanpa menunggu
       fetch("https://script.google.com/macros/s/AKfycbzN5DsF9tOw-QfhB6ui9ifK1acKRMqFsEzE9mTX57ywDUPJkcKtd2fMfhMXnBMbixSWvg/exec?sheet=Sheet1", {
         method: "POST",
@@ -173,7 +176,6 @@
       }).catch(err => {
         console.warn("Gagal kirim data:", err);
       });
-
       // Langsung tampilkan halaman konfirmasi
       const msg = `
         Terima kasih, <strong>${nama}</strong>.<br>
@@ -192,6 +194,11 @@
       document.getElementById('diskon').value = '';
       document.getElementById('produk').value = '';
       document.getElementById('totalHarga').textContent = 'Total Harga: Rp0';
+    }
+
+    function kembaliKeDeskripsi() {
+      document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+      document.getElementById('description-page').classList.add('active');
     }
   </script>
 </body>
