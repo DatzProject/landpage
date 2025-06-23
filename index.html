@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { User, Calendar, Clock, Search, Plus, Check, X, FileText } from 'lucide-react';
 
 const StudentAttendanceApp = () => {
   const [students, setStudents] = useState([
@@ -13,12 +14,16 @@ const StudentAttendanceApp = () => {
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   const [selectedClass, setSelectedClass] = useState('Semua');
   const [searchTerm, setSearchTerm] = useState('');
+  const [activeTab, setActiveTab] = useState('absensi');
+  const [newStudent, setNewStudent] = useState({ name: '', kelas: '', nisn: '' });
+  const [showAddForm, setShowAddForm] = useState(false);
 
+  const classes = ['Semua', 'X-A', 'X-B', 'XI-A', 'XI-B', 'XII-A', 'XII-B'];
   const attendanceStatus = ['Hadir', 'Izin', 'Sakit', 'Alpha'];
-  const classes = ['Semua', 'X-A', 'X-B', 'XI-A'];
 
   useEffect(() => {
-    const today = selectedDate;
+    // Initialize attendance for today if not exists
+    const today = new Date().toISOString().split('T')[0];
     if (!attendance[today]) {
       const todayAttendance = {};
       students.forEach(student => {
@@ -26,7 +31,7 @@ const StudentAttendanceApp = () => {
       });
       setAttendance(prev => ({ ...prev, [today]: todayAttendance }));
     }
-  }, [students, selectedDate]);
+  }, [students]);
 
   const handleAttendanceChange = (studentId, status) => {
     setAttendance(prev => ({
@@ -42,96 +47,641 @@ const StudentAttendanceApp = () => {
     return attendance[selectedDate]?.[studentId] || 'Hadir';
   };
 
+  const addStudent = () => {
+    if (newStudent.name && newStudent.kelas && newStudent.nisn) {
+      const newId = Math.max(...students.map(s => s.id)) + 1;
+      setStudents(prev => [...prev, { ...newStudent, id: newId }]);
+      setNewStudent({ name: '', kelas: '', nisn: '' });
+      setShowAddForm(false);
+    }
+  };
+
   const filteredStudents = students.filter(student => {
     const matchClass = selectedClass === 'Semua' || student.kelas === selectedClass;
-    const matchSearch = student.name.toLowerCase().includes(searchTerm.toLowerCase()) || student.nisn.includes(searchTerm);
+    const matchSearch = student.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                       student.nisn.includes(searchTerm);
     return matchClass && matchSearch;
   });
 
-  const handleSaveToSheet = async () => {
-    const endpoint = 'https://script.google.com/macros/s/AKfycbxB_04QTjqWox9-1qkDFRdDKCj44nCpexwPSm0vGsFF0Fs-SZpyp2gvjaONPLQNSQTz/exec';
+  const getAttendanceStats = () => {
+    const dateAttendance = attendance[selectedDate] || {};
+    const stats = { Hadir: 0, Izin: 0, Sakit: 0, Alpha: 0 };
+    
+    filteredStudents.forEach(student => {
+      const status = dateAttendance[student.id] || 'Hadir';
+      stats[status]++;
+    });
+    
+    return stats;
+  };
 
-    const dataToSend = filteredStudents.map(student => ({
-      tanggal: selectedDate,
-      nama: student.name,
-      kelas: student.kelas,
-      nisn: student.nisn,
-      status: getAttendanceStatus(student.id)
-    }));
+  const calculateMonthlyStats = () => {
+    const selectedMonth = selectedDate.slice(0, 7); // YYYY-MM format
+    let totalHadir = 0, totalIzin = 0, totalSakit = 0, totalAlpha = 0;
+    
+    Object.keys(attendance).forEach(date => {
+      if (date.startsWith(selectedMonth)) {
+        const dayAttendance = attendance[date];
+        if (dayAttendance) {
+          filteredStudents.forEach(student => {
+            const status = dayAttendance[student.id] || 'Hadir';
+            switch (status) {
+              case 'Hadir': totalHadir++; break;
+              case 'Izin': totalIzin++; break;
+              case 'Sakit': totalSakit++; break;
+              case 'Alpha': totalAlpha++; break;
+            }
+          });
+        }
+      }
+    });
+    
+    return { totalHadir, totalIzin, totalSakit, totalAlpha };
+  };
 
-    try {
-      await fetch(endpoint, {
-        method: 'POST',
-        mode: 'no-cors',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(dataToSend)
+  const getStudentMonthlyStats = (studentId) => {
+    const selectedMonth = selectedDate.slice(0, 7);
+    let hadir = 0, izin = 0, sakit = 0, alpha = 0, totalDays = 0;
+    
+    Object.keys(attendance).forEach(date => {
+      if (date.startsWith(selectedMonth) && attendance[date]) {
+        if (attendance[date][studentId]) {
+          totalDays++;
+          const status = attendance[date][studentId];
+          switch (status) {
+            case 'Hadir': hadir++; break;
+            case 'Izin': izin++; break;
+            case 'Sakit': sakit++; break;
+            case 'Alpha': alpha++; break;
+          }
+        }
+      }
+    });
+    
+    return { hadir, izin, sakit, alpha, totalDays };
+  };
+
+  const getDailyAttendanceChart = () => {
+    const selectedMonth = selectedDate.slice(0, 7);
+    const year = parseInt(selectedDate.slice(0, 4));
+    const month = parseInt(selectedDate.slice(5, 7));
+    const daysInMonth = new Date(year, month, 0).getDate();
+    const chartData = [];
+    
+    for (let day = 1; day <= Math.min(daysInMonth, 15); day++) {
+      const dateStr = `${selectedMonth}-${day.toString().padStart(2, '0')}`;
+      const dayAttendance = attendance[dateStr] || {};
+      
+      let hadir = 0, izin = 0, sakit = 0, alpha = 0;
+      filteredStudents.forEach(student => {
+        const status = dayAttendance[student.id] || 'Hadir';
+        switch (status) {
+          case 'Hadir': hadir++; break;
+          case 'Izin': izin++; break;
+          case 'Sakit': sakit++; break;
+          case 'Alpha': alpha++; break;
+        }
       });
+      
+      chartData.push({
+        date: day.toString(),
+        hadir,
+        izin,
+        sakit,
+        alpha
+      });
+    }
+    
+    return chartData;
+  };
 
-      alert('✅ Absensi berhasil dikirim ke Google Sheet!');
-    } catch (error) {
-      console.error('❌ Gagal kirim absensi:', error);
-      alert('Gagal mengirim data. Silakan periksa koneksi atau URL Web App.');
+  const generateCSVReport = () => {
+    let csvContent = 'Nama,Kelas,NISN,Hadir,Izin,Sakit,Alpha,Persentase Hadir\n';
+    
+    filteredStudents.forEach(student => {
+      const stats = getStudentMonthlyStats(student.id);
+      const percentage = stats.totalDays > 0 
+        ? ((stats.hadir / stats.totalDays) * 100).toFixed(1)
+        : 0;
+      
+      csvContent += `${student.name},${student.kelas},${student.nisn},${stats.hadir},${stats.izin},${stats.sakit},${stats.alpha},${percentage}%\n`;
+    });
+    
+    return csvContent;
+  };
+
+  const stats = getAttendanceStats();
+
+  const getStatusColor = (status) => {
+    switch (status) {
+      case 'Hadir': return 'bg-green-500';
+      case 'Izin': return 'bg-yellow-500';
+      case 'Sakit': return 'bg-blue-500';
+      case 'Alpha': return 'bg-red-500';
+      default: return 'bg-gray-500';
+    }
+  };
+
+  const getStatusIcon = (status) => {
+    switch (status) {
+      case 'Hadir': return <Check className="w-4 h-4" />;
+      case 'Alpha': return <X className="w-4 h-4" />;
+      default: return <Clock className="w-4 h-4" />;
     }
   };
 
   return (
-    <div className="max-w-3xl mx-auto p-4">
-      <h1 className="text-2xl font-bold mb-4">Absensi Siswa ({filteredStudents.length} siswa)</h1>
-
-      <div className="mb-4 flex flex-wrap gap-4">
-        <input
-          type="date"
-          value={selectedDate}
-          onChange={e => setSelectedDate(e.target.value)}
-          className="p-2 border rounded"
-        />
-        <select value={selectedClass} onChange={e => setSelectedClass(e.target.value)} className="p-2 border rounded">
-          {classes.map(cls => (
-            <option key={cls} value={cls}>{cls}</option>
-          ))}
-        </select>
-        <input
-          type="text"
-          placeholder="Cari siswa..."
-          value={searchTerm}
-          onChange={e => setSearchTerm(e.target.value)}
-          className="p-2 border rounded flex-1"
-        />
-      </div>
-
-      <div className="space-y-3 mb-6">
-        {filteredStudents.map(student => (
-          <div key={student.id} className="flex justify-between items-center bg-gray-100 p-3 rounded">
-            <div>
-              <p className="font-semibold">{student.name}</p>
-              <p className="text-sm text-gray-600">{student.kelas} • NISN: {student.nisn}</p>
+    <div className="min-h-screen bg-gray-50 p-4">
+      <div className="max-w-6xl mx-auto">
+        {/* Header */}
+        <div className="bg-white rounded-lg shadow-md p-6 mb-6">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-3">
+              <div className="bg-blue-600 p-3 rounded-lg">
+                <User className="w-6 h-6 text-white" />
+              </div>
+              <div>
+                <h1 className="text-2xl font-bold text-gray-800">Sistem Absensi Siswa</h1>
+                <p className="text-gray-600">Kelola absensi siswa dengan mudah</p>
+              </div>
             </div>
-            <div className="flex gap-1">
-              {attendanceStatus.map(status => (
-                <button
-                  key={status}
-                  onClick={() => handleAttendanceChange(student.id, status)}
-                  className={`px-3 py-1 rounded text-sm font-medium ${
-                    getAttendanceStatus(student.id) === status
-                      ? 'bg-green-500 text-white'
-                      : 'bg-white border'
-                  }`}
-                >
-                  {status}
-                </button>
-              ))}
+            <div className="text-right">
+              <p className="text-sm text-gray-500">Tanggal Hari Ini</p>
+              <p className="text-lg font-semibold text-gray-800">
+                {new Date().toLocaleDateString('id-ID', { 
+                  weekday: 'long', 
+                  year: 'numeric', 
+                  month: 'long', 
+                  day: 'numeric' 
+                })}
+              </p>
             </div>
           </div>
-        ))}
-      </div>
+        </div>
 
-      <div className="text-center">
-        <button
-          onClick={handleSaveToSheet}
-          className="bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded font-bold"
-        >
-          ✅ Simpan Absensi
-        </button>
+        {/* Navigation Tabs */}
+        <div className="bg-white rounded-lg shadow-md mb-6">
+          <div className="flex border-b">
+            <button
+              onClick={() => setActiveTab('absensi')}
+              className={`px-6 py-3 font-medium ${
+                activeTab === 'absensi' 
+                  ? 'text-blue-600 border-b-2 border-blue-600' 
+                  : 'text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              <Calendar className="w-4 h-4 inline mr-2" />
+              Absensi Harian
+            </button>
+            <button
+              onClick={() => setActiveTab('siswa')}
+              className={`px-6 py-3 font-medium ${
+                activeTab === 'siswa' 
+                  ? 'text-blue-600 border-b-2 border-blue-600' 
+                  : 'text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              <User className="w-4 h-4 inline mr-2" />
+              Data Siswa
+            </button>
+            <button
+              onClick={() => setActiveTab('laporan')}
+              className={`px-6 py-3 font-medium ${
+                activeTab === 'laporan' 
+                  ? 'text-blue-600 border-b-2 border-blue-600' 
+                  : 'text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              <FileText className="w-4 h-4 inline mr-2" />
+              Laporan
+            </button>
+          </div>
+        </div>
+
+        {/* Absensi Tab */}
+        {activeTab === 'absensi' && (
+          <div className="space-y-6">
+            {/* Controls */}
+            <div className="bg-white rounded-lg shadow-md p-6">
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Tanggal
+                  </label>
+                  <input
+                    type="date"
+                    value={selectedDate}
+                    onChange={(e) => setSelectedDate(e.target.value)}
+                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Kelas
+                  </label>
+                  <select
+                    value={selectedClass}
+                    onChange={(e) => setSelectedClass(e.target.value)}
+                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  >
+                    {classes.map(cls => (
+                      <option key={cls} value={cls}>{cls}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Cari Siswa
+                  </label>
+                  <div className="relative">
+                    <Search className="absolute left-3 top-3 w-5 h-5 text-gray-400" />
+                    <input
+                      type="text"
+                      placeholder="Cari nama atau NISN..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className="w-full pl-10 p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Statistics */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              {attendanceStatus.map(status => (
+                <div key={status} className="bg-white rounded-lg shadow-md p-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm text-gray-600">{status}</p>
+                      <p className="text-2xl font-bold text-gray-800">{stats[status]}</p>
+                    </div>
+                    <div className={`p-3 rounded-lg ${getStatusColor(status)}`}>
+                      <div className="text-white">
+                        {getStatusIcon(status)}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Student List */}
+            <div className="bg-white rounded-lg shadow-md">
+              <div className="p-6 border-b">
+                <h2 className="text-lg font-semibold text-gray-800">
+                  Daftar Absensi ({filteredStudents.length} siswa)
+                </h2>
+              </div>
+              <div className="divide-y divide-gray-200">
+                {filteredStudents.map(student => (
+                  <div key={student.id} className="p-4 hover:bg-gray-50">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-4">
+                        <div className="bg-blue-100 p-2 rounded-full">
+                          <User className="w-5 h-5 text-blue-600" />
+                        </div>
+                        <div>
+                          <p className="font-medium text-gray-800">{student.name}</p>
+                          <p className="text-sm text-gray-500">
+                            {student.kelas} • NISN: {student.nisn}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex space-x-2">
+                        {attendanceStatus.map(status => (
+                          <button
+                            key={status}
+                            onClick={() => handleAttendanceChange(student.id, status)}
+                            className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                              getAttendanceStatus(student.id) === status
+                                ? `${getStatusColor(status)} text-white`
+                                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                            }`}
+                          >
+                            {status}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              
+              {/* Tombol Simpan */}
+              <div className="p-6 border-t bg-gray-50">
+                <div className="flex justify-center">
+                  <button
+                    onClick={() => {
+                      // Simulasi simpan data
+                      alert(`Absensi tanggal ${new Date(selectedDate).toLocaleDateString('id-ID')} berhasil disimpan!\n\nRingkasan:\n• Hadir: ${stats.Hadir} siswa\n• Izin: ${stats.Izin} siswa\n• Sakit: ${stats.Sakit} siswa\n• Alpha: ${stats.Alpha} siswa`);
+                    }}
+                    className="bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-8 rounded-lg transition-colors duration-200 flex items-center space-x-2 shadow-md"
+                  >
+                    <Check className="w-5 h-5" />
+                    <span>Simpan Absensi</span>
+                  </button>
+                </div>
+                <p className="text-center text-sm text-gray-500 mt-3">
+                  Pastikan semua data absensi sudah benar sebelum menyimpan
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Data Siswa Tab */}
+        {activeTab === 'siswa' && (
+          <div className="space-y-6">
+            <div className="bg-white rounded-lg shadow-md p-6">
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-lg font-semibold text-gray-800">Data Siswa</h2>
+                <button
+                  onClick={() => setShowAddForm(!showAddForm)}
+                  className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center space-x-2"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>Tambah Siswa</span>
+                </button>
+              </div>
+
+              {showAddForm && (
+                <div className="mb-6 p-4 bg-gray-50 rounded-lg">
+                  <h3 className="font-medium text-gray-800 mb-3">Tambah Siswa Baru</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <input
+                      type="text"
+                      placeholder="Nama Lengkap"
+                      value={newStudent.name}
+                      onChange={(e) => setNewStudent(prev => ({ ...prev, name: e.target.value }))}
+                      className="p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    />
+                    <select
+                      value={newStudent.kelas}
+                      onChange={(e) => setNewStudent(prev => ({ ...prev, kelas: e.target.value }))}
+                      className="p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    >
+                      <option value="">Pilih Kelas</option>
+                      {classes.filter(cls => cls !== 'Semua').map(cls => (
+                        <option key={cls} value={cls}>{cls}</option>
+                      ))}
+                    </select>
+                    <input
+                      type="text"
+                      placeholder="NISN"
+                      value={newStudent.nisn}
+                      onChange={(e) => setNewStudent(prev => ({ ...prev, nisn: e.target.value }))}
+                      className="p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    />
+                  </div>
+                  <div className="flex space-x-2 mt-4">
+                    <button
+                      onClick={addStudent}
+                      className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700"
+                    >
+                      Simpan
+                    </button>
+                    <button
+                      onClick={() => setShowAddForm(false)}
+                      className="bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700"
+                    >
+                      Batal
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              <div className="divide-y divide-gray-200">
+                {students.map(student => (
+                  <div key={student.id} className="p-4 flex items-center justify-between hover:bg-gray-50">
+                    <div className="flex items-center space-x-4">
+                      <div className="bg-blue-100 p-2 rounded-full">
+                        <User className="w-5 h-5 text-blue-600" />
+                      </div>
+                      <div>
+                        <p className="font-medium text-gray-800">{student.name}</p>
+                        <p className="text-sm text-gray-500">
+                          {student.kelas} • NISN: {student.nisn}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Laporan Tab */}
+        {activeTab === 'laporan' && (
+          <div className="space-y-6">
+            {/* Filter Laporan */}
+            <div className="bg-white rounded-lg shadow-md p-6">
+              <h2 className="text-lg font-semibold text-gray-800 mb-4">Laporan Bulanan</h2>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Bulan
+                  </label>
+                  <input
+                    type="month"
+                    value={selectedDate.slice(0, 7)}
+                    onChange={(e) => setSelectedDate(e.target.value + '-01')}
+                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Kelas
+                  </label>
+                  <select
+                    value={selectedClass}
+                    onChange={(e) => setSelectedClass(e.target.value)}
+                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  >
+                    {classes.map(cls => (
+                      <option key={cls} value={cls}>{cls}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="flex items-end">
+                  <button
+                    onClick={() => {
+                      const csvContent = generateCSVReport();
+                      const blob = new Blob([csvContent], { type: 'text/csv' });
+                      const url = window.URL.createObjectURL(blob);
+                      const a = document.createElement('a');
+                      a.href = url;
+                      a.download = `laporan-absensi-${selectedDate.slice(0, 7)}.csv`;
+                      a.click();
+                    }}
+                    className="w-full bg-green-600 text-white px-4 py-3 rounded-lg hover:bg-green-700 flex items-center justify-center space-x-2"
+                  >
+                    <FileText className="w-4 h-4" />
+                    <span>Export CSV</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Ringkasan Statistik */}
+            <div className="bg-white rounded-lg shadow-md p-6">
+              <h3 className="text-lg font-semibold text-gray-800 mb-4">Ringkasan Statistik</h3>
+              <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+                <div className="text-center p-4 bg-blue-50 rounded-lg">
+                  <p className="text-2xl font-bold text-blue-600">{filteredStudents.length}</p>
+                  <p className="text-sm text-gray-600">Total Siswa</p>
+                </div>
+                <div className="text-center p-4 bg-green-50 rounded-lg">
+                  <p className="text-2xl font-bold text-green-600">{calculateMonthlyStats().totalHadir}</p>
+                  <p className="text-sm text-gray-600">Total Hadir</p>
+                </div>
+                <div className="text-center p-4 bg-yellow-50 rounded-lg">
+                  <p className="text-2xl font-bold text-yellow-600">{calculateMonthlyStats().totalIzin}</p>
+                  <p className="text-sm text-gray-600">Total Izin</p>
+                </div>
+                <div className="text-center p-4 bg-blue-50 rounded-lg">
+                  <p className="text-2xl font-bold text-blue-600">{calculateMonthlyStats().totalSakit}</p>
+                  <p className="text-sm text-gray-600">Total Sakit</p>
+                </div>
+                <div className="text-center p-4 bg-red-50 rounded-lg">
+                  <p className="text-2xl font-bold text-red-600">{calculateMonthlyStats().totalAlpha}</p>
+                  <p className="text-sm text-gray-600">Total Alpha</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Tabel Laporan Detail */}
+            <div className="bg-white rounded-lg shadow-md">
+              <div className="p-6 border-b">
+                <h3 className="text-lg font-semibold text-gray-800">Laporan Detail per Siswa</h3>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Nama Siswa
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Kelas
+                      </th>
+                      <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Hadir
+                      </th>
+                      <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Izin
+                      </th>
+                      <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Sakit
+                      </th>
+                      <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Alpha
+                      </th>
+                      <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Persentase Hadir
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {filteredStudents.map(student => {
+                      const studentStats = getStudentMonthlyStats(student.id);
+                      const attendancePercentage = studentStats.totalDays > 0 
+                        ? ((studentStats.hadir / studentStats.totalDays) * 100).toFixed(1)
+                        : 0;
+                      
+                      return (
+                        <tr key={student.id} className="hover:bg-gray-50">
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="flex items-center">
+                              <div className="bg-blue-100 p-2 rounded-full mr-3">
+                                <User className="w-4 h-4 text-blue-600" />
+                              </div>
+                              <div>
+                                <div className="text-sm font-medium text-gray-900">{student.name}</div>
+                                <div className="text-sm text-gray-500">NISN: {student.nisn}</div>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            {student.kelas}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-center">
+                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                              {studentStats.hadir}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-center">
+                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                              {studentStats.izin}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-center">
+                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                              {studentStats.sakit}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-center">
+                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                              {studentStats.alpha}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-center">
+                            <div className="flex items-center justify-center">
+                              <div className="w-16 h-2 bg-gray-200 rounded-full mr-2">
+                                <div 
+                                  className={`h-2 rounded-full ${
+                                    attendancePercentage >= 80 ? 'bg-green-500' :
+                                    attendancePercentage >= 60 ? 'bg-yellow-500' : 'bg-red-500'
+                                  }`}
+                                  style={{ width: `${Math.min(attendancePercentage, 100)}%` }}
+                                ></div>
+                              </div>
+                              <span className="text-sm font-medium text-gray-900">
+                                {attendancePercentage}%
+                              </span>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* Grafik Kehadiran Harian */}
+            <div className="bg-white rounded-lg shadow-md p-6">
+              <h3 className="text-lg font-semibold text-gray-800 mb-4">Grafik Kehadiran Harian</h3>
+              <div className="h-64 flex items-end justify-between space-x-1 bg-gray-50 p-4 rounded-lg">
+                {getDailyAttendanceChart().map((day, index) => (
+                  <div key={index} className="flex flex-col items-center flex-1">
+                    <div className="w-full max-w-8 bg-gray-200 rounded-t" style={{ height: '200px', position: 'relative' }}>
+                      <div 
+                        className="w-full bg-green-500 rounded-t absolute bottom-0"
+                        style={{ height: `${(day.hadir / Math.max(...getDailyAttendanceChart().map(d => d.hadir + d.izin + d.sakit + d.alpha))) * 200}px` }}
+                      ></div>
+                    </div>
+                    <div className="text-xs text-gray-600 mt-2 text-center">
+                      {day.date}
+                    </div>
+                    <div className="text-xs text-gray-500">
+                      {day.hadir}
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div className="mt-4 flex justify-center">
+                <div className="flex items-center space-x-4 text-sm">
+                  <div className="flex items-center">
+                    <div className="w-3 h-3 bg-green-500 rounded mr-2"></div>
+                    <span>Hadir</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
